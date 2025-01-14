@@ -3,18 +3,16 @@ from flask_cors import CORS
 import json
 
 app = Flask(__name__)
-CORS(app, resources={r"/sign-up": {"origins": "http://localhost:5173"}})
+CORS(app)
 
 @app.route('/sign-up', methods=['POST'])
 def sign_up():
     data = request.get_json()
     
-    # Extract user details
     user = data.get('user')
     email = data.get('email')
     pwd = data.get('pwd')
-    
-    # Example: You can add your logic here to check if username/email exists
+
     try:
         with open('users.json', 'r') as f:
             users_data = json.load(f)
@@ -24,10 +22,10 @@ def sign_up():
         if email in users_data['emails']:
             return jsonify({'message': 'Email already exists'}), 409
 
-        # Save new user data (you may want to hash the password in a real app)
+        # NEED TO HASH PASSWORD HERE 
         users_data['users'].append(user)
         users_data['emails'].append(email)
-        users_data['passwords'].append(pwd)  # Don't store passwords in plain text!
+        users_data['passwords'].append(pwd)  
 
         with open('users.json', 'w') as f:
             json.dump(users_data, f)
@@ -36,6 +34,47 @@ def sign_up():
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
+    
+    
+@app.route('/log-in', methods=['POST'])
+def log_in():
+    data = request.get_json()
+
+    login = data.get('login') 
+    pwd = data.get('pwd')      
+
+    if not login or not pwd:
+        return jsonify({'message': 'Login and password are required'}), 400
+
+    try:
+        with open('users.json', 'r') as f:
+            users_data = json.load(f)
+
+        if login in users_data['users']:
+            user_index = users_data['users'].index(login)
+            if users_data['passwords'][user_index] == pwd: 
+                return jsonify({'message': 'Login successful', 'username': login}), 200
+            else:
+                return jsonify({'message': 'Invalid password'}), 401
+
+
+        elif login in users_data['emails']:
+            user_index = users_data['emails'].index(login)
+            if users_data['passwords'][user_index] == pwd:  
+                username = users_data['users'][user_index] 
+                return jsonify({'message': 'Login successful', 'username': username}), 200
+            else:
+                return jsonify({'message': 'Invalid password'}), 401
+
+        else:
+            return jsonify({'message': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+    
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({'message': 'Welcome to the API!'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
