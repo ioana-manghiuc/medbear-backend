@@ -21,21 +21,24 @@ def sign_up():
     try:
         with open('users.json', 'r') as f:
             users_data = json.load(f)
-        
+
         if user in users_data['users']:
             return jsonify({'message': 'Username already exists'}), 409
         if email in users_data['emails']:
             return jsonify({'message': 'Email already exists'}), 409
 
-        hashed_pwd = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
+        new_id = users_data['ids'][-1] + 1 if users_data['ids'] else 1
+
+        users_data['ids'].append(new_id)
         users_data['users'].append(user)
         users_data['emails'].append(email)
+        hashed_pwd = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
         users_data['passwords'].append(hashed_pwd)
 
         with open('users.json', 'w') as f:
-            json.dump(users_data, f)
+            json.dump(users_data, f, indent=4)
 
-        return jsonify({'message': 'User registered successfully'}), 200
+        return jsonify({'message': 'User registered successfully', 'id': new_id}), 200
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
@@ -75,6 +78,69 @@ def log_in():
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
+
+
+@app.route('/edit-account', methods=['POST'])
+def edit_account():
+    data = request.get_json()
+    user_id = data.get('id')
+    username = data.get('username')
+    email = data.get('email')
+
+    if user_id is None or username is None or email is None:
+        return jsonify({'message': 'ID, username, and email are required'}), 400
+
+    try:
+        with open('users.json', 'r') as f:
+            users_data = json.load(f)
+
+        if user_id not in users_data['ids']:
+            return jsonify({'message': 'User ID not found'}), 404
+
+        user_index = users_data['ids'].index(user_id)
+
+        if email in users_data['emails'] and users_data['emails'][user_index] != email:
+            return jsonify({'message': 'Email already in use by another user'}), 409
+
+        users_data['users'][user_index] = username
+        users_data['emails'][user_index] = email
+
+        with open('users.json', 'w') as f:
+            json.dump(users_data, f, indent=4)
+
+        return jsonify({'message': 'Account updated successfully'}), 200
+
+    except FileNotFoundError:
+        return jsonify({'message': 'User data file not found'}), 500
+    except json.JSONDecodeError:
+        return jsonify({'message': 'Error decoding user data file'}), 500
+    except Exception as e:
+        return jsonify({'message': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route('/get-account', methods=['POST'])
+def get_account():
+    data = request.get_json()
+    username = data.get('username')
+
+    if not username:
+        return jsonify({'message': 'Username is required'}), 400
+
+    try:
+        with open('users.json', 'r') as f:
+            users_data = json.load(f)
+
+        if username in users_data['users']:
+            user_index = users_data['users'].index(username)
+            user_id = users_data['ids'][user_index]
+            email = users_data['emails'][user_index]
+            return jsonify({'id': user_id, 'username': username, 'email': email}), 200
+        else:
+            return jsonify({'message': 'User not found'}), 404
+
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+
 
 @app.route('/', methods=['GET'])
 def home():

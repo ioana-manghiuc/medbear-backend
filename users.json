@@ -1,1 +1,18 @@
-{"users": ["dave"], "emails": ["dave@dave.com"], "passwords": ["$2b$12$vaRtaTBlxR4nS6U2k2rXj.M1ls13z3H09R4JoVYaIJWPMMgw9Adem"]}
+{
+    "ids": [
+        1,
+        2
+    ],
+    "users": [
+        "dave",
+        "ioana"
+    ],
+    "emails": [
+        "davebuster@daves.com",
+        "ioana@miau.com"
+    ],
+    "passwords": [
+        "$2b$12$vaRtaTBlxR4nS6U2k2rXj.M1ls13z3H09R4JoVYaIJWPMMgw9Adem",
+        "$2b$12$KhcHPotPplL9wrzgv77xR.L/3LBu8d.LKoLCVIzYGhHWm04mSJEEK"
+    ]
+}
