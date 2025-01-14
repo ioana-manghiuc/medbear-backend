@@ -1,1 +1,3 @@
-{"users": ["john_doe", "alice_smith", "dave", "galinda"], "emails": ["john@example.com", "alice@example.com", "dave@dave.com", "galinda@t.ro"], "passwords": ["$2b$12$Lv9fUS5X1eGV3xU0TQeIVyQdTZcd9mW6oWyGR1phtH7y.PZpZjKUS", "$2b$12$gVZ1POBrYsMk7jbToTeL58ylkW.JgaIE3hHfeIHKsn36ToIPfSkqS", "123Dave#", "Galinda123#"]}
+{"users": [ "dave", "galinda"], 
+"emails": ["dave@dave.com", "galinda@t.ro"], 
+"passwords": [ "123Dave#", "Galinda123#"]}
