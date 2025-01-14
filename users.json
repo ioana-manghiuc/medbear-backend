@@ -1,3 +1,1 @@
-{"users": [ "dave", "galinda"], 
-"emails": ["dave@dave.com", "galinda@t.ro"], 
-"passwords": [ "123Dave#", "Galinda123#"]}
+{"users": ["dave"], "emails": ["dave@dave.com"], "passwords": ["$2b$12$vaRtaTBlxR4nS6U2k2rXj.M1ls13z3H09R4JoVYaIJWPMMgw9Adem"]}

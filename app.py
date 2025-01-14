@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
-from cryptography.fernet import Fernet
+import bcrypt
 from dotenv import load_dotenv
 import os
 
@@ -9,10 +9,6 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-key = os.getenv("ENCRYPTION_KEY")
-if not key:
-    raise ValueError("Encryption key not found in environment variables")
-fernet = Fernet(key)
 
 @app.route('/sign-up', methods=['POST'])
 def sign_up():
@@ -31,11 +27,10 @@ def sign_up():
         if email in users_data['emails']:
             return jsonify({'message': 'Email already exists'}), 409
 
-        encrypted_pwd = fernet.encrypt(pwd.encode())
-        # NEED TO HASH PASSWORD HERE 
+        hashed_pwd = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
         users_data['users'].append(user)
         users_data['emails'].append(email)
-        users_data['passwords'].append(encrypted_pwd)  
+        users_data['passwords'].append(hashed_pwd)
 
         with open('users.json', 'w') as f:
             json.dump(users_data, f)
@@ -62,16 +57,15 @@ def log_in():
 
         if login in users_data['users']:
             user_index = users_data['users'].index(login)
-            if fernet.decrypt(users_data['passwords'][user_index]).decode() == pwd: 
+            if bcrypt.checkpw(pwd.encode(), users_data['passwords'][user_index].encode()):
                 return jsonify({'message': 'Login successful', 'username': login}), 200
             else:
                 return jsonify({'message': 'Invalid password'}), 401
 
-
         elif login in users_data['emails']:
             user_index = users_data['emails'].index(login)
-            if fernet.decrypt(users_data['passwords'][user_index]).decode() == pwd:  
-                username = users_data['users'][user_index] 
+            if bcrypt.checkpw(pwd.encode(), users_data['passwords'][user_index].encode()):
+                username = users_data['users'][user_index]
                 return jsonify({'message': 'Login successful', 'username': username}), 200
             else:
                 return jsonify({'message': 'Invalid password'}), 401
@@ -81,7 +75,7 @@ def log_in():
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
-    
+
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({'message': 'Welcome to the API!'}), 200
