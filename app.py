@@ -4,11 +4,15 @@ import json
 import bcrypt
 from dotenv import load_dotenv
 import os
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 
 @app.route('/sign-up', methods=['POST'])
 def sign_up():
@@ -79,6 +83,45 @@ def log_in():
     except Exception as e:
         return jsonify({'message': str(e)}), 500
 
+@app.route('/google-login', methods=['POST'])
+def google_login():
+    data = request.get_json()
+    token = data.get("credential")
+
+    if not token:
+        return jsonify({'message': 'Google token is required'}), 400
+
+    try:
+        # Verify the Google token
+        id_info = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+
+        # Extract user details
+        email = id_info.get('email')
+        username = email.split('@')[0]
+
+        # Check if user exists in the database (users.json)
+        with open('users.json', 'r') as f:
+            users_data = json.load(f)
+
+        if email in users_data['emails']:
+            user_index = users_data['emails'].index(email)
+            username = users_data['users'][user_index]
+            return jsonify({'message': 'Login successful', 'username': username, 'email': email}), 200
+        else:
+            # Register new user if not found
+            new_id = users_data['ids'][-1] + 1 if users_data['ids'] else 1
+            users_data['ids'].append(new_id)
+            users_data['users'].append(username)
+            users_data['emails'].append(email)
+            users_data['passwords'].append(None)  # Google accounts don't require passwords
+
+            with open('users.json', 'w') as f:
+                json.dump(users_data, f, indent=4)
+
+            return jsonify({'message': 'User registered successfully', 'username': username, 'email': email}), 200
+
+    except ValueError as e:
+        return jsonify({'message': 'Invalid Google token', 'details': str(e)}), 401
 
 @app.route('/edit-account', methods=['POST'])
 def edit_account():
