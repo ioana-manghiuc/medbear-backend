@@ -92,14 +92,11 @@ def google_login():
         return jsonify({'message': 'Google token is required'}), 400
 
     try:
-        # Verify the Google token
         id_info = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
 
-        # Extract user details
         email = id_info.get('email')
         username = email.split('@')[0]
 
-        # Check if user exists in the database (users.json)
         with open('users.json', 'r') as f:
             users_data = json.load(f)
 
@@ -108,12 +105,11 @@ def google_login():
             username = users_data['users'][user_index]
             return jsonify({'message': 'Login successful', 'username': username, 'email': email}), 200
         else:
-            # Register new user if not found
             new_id = users_data['ids'][-1] + 1 if users_data['ids'] else 1
             users_data['ids'].append(new_id)
             users_data['users'].append(username)
             users_data['emails'].append(email)
-            users_data['passwords'].append(None)  # Google accounts don't require passwords
+            users_data['passwords'].append(None)  
 
             with open('users.json', 'w') as f:
                 json.dump(users_data, f, indent=4)
