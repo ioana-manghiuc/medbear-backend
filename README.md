@@ -15,8 +15,8 @@ Installation steps:
 7. **pip install -r requirements.txt**
 
 **.env.vault**:
-1. dotenv-vault open
-2. npx dotenv-vault@latest pull
-3. npx dotenv-vault@latest open
+1. **dotenv-vault open**
+2. **npx dotenv-vault@latest pull**
+3. **npx dotenv-vault@latest open**
 
 Then run **py app.py** to start the server
