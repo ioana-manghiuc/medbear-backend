@@ -13,4 +13,10 @@ Installation steps:
 5. **py -m venv .venv**
 6. **.venv\Scripts\activate**
 7. **pip install -r requirements.txt**
-8. **py app.py** to start the server
+
+**.env.vault**:
+1. dotenv-vault open
+2. npx dotenv-vault@latest pull
+3. npx dotenv-vault@latest open
+
+Then run **py app.py** to start the server
