@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import bcrypt
-from dotenv import load_dotenv
+from dotenv_vault import load_dotenv
 import os
 from google.oauth2 import id_token
 from google.auth.transport import requests
