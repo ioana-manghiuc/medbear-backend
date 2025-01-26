@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 import os
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from pymongo import MongoClient
 
 load_dotenv()
 
 app = Flask(__name__)
+client = MongoClient(os.getenv('MONGO_URI'))
 CORS(app)
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
