@@ -11,8 +11,10 @@ from pymongo import MongoClient
 load_dotenv()
 
 app = Flask(__name__)
-client = MongoClient(os.getenv('MONGO_URI'))
 CORS(app)
+client = MongoClient(os.getenv('MONGO_URI'))
+db = client.get_database('medical-ai-db')
+users_collection = db.users
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 
@@ -24,31 +26,34 @@ def sign_up():
     email = data.get('email')
     pwd = data.get('pwd')
 
+    if not user or not email or not pwd:
+        return jsonify({'message': 'User, email, and password are required'}), 400
+
     try:
-        with open('users.json', 'r') as f:
-            users_data = json.load(f)
+        user_data = users_collection.find_one()
 
-        if user in users_data['users']:
-            return jsonify({'message': 'Username already exists'}), 409
-        if email in users_data['emails']:
-            return jsonify({'message': 'Email already exists'}), 409
+        if user_data:
+            if user in user_data['usernames']:
+                return jsonify({'message': 'Username already exists'}), 409
+            if email in user_data['emails']:
+                return jsonify({'message': 'Email already exists'}), 409
 
-        new_id = users_data['ids'][-1] + 1 if users_data['ids'] else 1
-
-        users_data['ids'].append(new_id)
-        users_data['users'].append(user)
-        users_data['emails'].append(email)
         hashed_pwd = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
-        users_data['passwords'].append(hashed_pwd)
 
-        with open('users.json', 'w') as f:
-            json.dump(users_data, f, indent=4)
+        new_id = max(user_data['ids']) + 1 if user_data else 1
+        new_user = {
+            'ids': [new_id],
+            'usernames': [user],
+            'emails': [email],
+            'passwords': [hashed_pwd]
+        }
+        
+        users_collection.update_one({}, {'$push': {'ids': new_id, 'usernames': user, 'emails': email, 'passwords': hashed_pwd}}, upsert=True)
 
         return jsonify({'message': 'User registered successfully', 'id': new_id}), 200
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
-    
     
 @app.route('/log-in', methods=['POST'])
 def log_in():
@@ -61,20 +66,22 @@ def log_in():
         return jsonify({'message': 'Login and password are required'}), 400
 
     try:
-        with open('users.json', 'r') as f:
-            users_data = json.load(f)
+        user_data = users_collection.find_one()
 
-        if login in users_data['users']:
-            user_index = users_data['users'].index(login)
-            if bcrypt.checkpw(pwd.encode(), users_data['passwords'][user_index].encode()):
+        if not user_data:
+            return jsonify({'message': 'No users found in the database'}), 404
+
+        if login in user_data['usernames']:
+            user_index = user_data['usernames'].index(login)
+            if bcrypt.checkpw(pwd.encode(), user_data['passwords'][user_index].encode()):
                 return jsonify({'message': 'Login successful', 'username': login}), 200
             else:
                 return jsonify({'message': 'Invalid password'}), 401
 
-        elif login in users_data['emails']:
-            user_index = users_data['emails'].index(login)
-            if bcrypt.checkpw(pwd.encode(), users_data['passwords'][user_index].encode()):
-                username = users_data['users'][user_index]
+        elif login in user_data['emails']:
+            user_index = user_data['emails'].index(login)
+            if bcrypt.checkpw(pwd.encode(), user_data['passwords'][user_index].encode()):
+                username = user_data['usernames'][user_index]
                 return jsonify({'message': 'Login successful', 'username': username}), 200
             else:
                 return jsonify({'message': 'Invalid password'}), 401
@@ -84,6 +91,14 @@ def log_in():
 
     except Exception as e:
         return jsonify({'message': str(e)}), 500
+
+@app.route('/get-google-client-id', methods=['GET'])  
+def get_google_client_id():
+    client_id = os.getenv('GOOGLE_CLIENT_ID')
+    if client_id:
+        return jsonify({'googleClientId': client_id}), 200
+    else:
+        return jsonify({'message': 'Client ID not found'}), 404
 
 @app.route('/google-login', methods=['POST'])
 def google_login():
@@ -99,24 +114,17 @@ def google_login():
         email = id_info.get('email')
         username = email.split('@')[0]
 
-        with open('users.json', 'r') as f:
-            users_data = json.load(f)
+        user_data = users_collection.find_one()
 
-        if email in users_data['emails']:
-            user_index = users_data['emails'].index(email)
-            username = users_data['users'][user_index]
-            return jsonify({'message': 'Login successful', 'username': username, 'email': email}), 200
-        else:
-            new_id = users_data['ids'][-1] + 1 if users_data['ids'] else 1
-            users_data['ids'].append(new_id)
-            users_data['users'].append(username)
-            users_data['emails'].append(email)
-            users_data['passwords'].append(None)  
-
-            with open('users.json', 'w') as f:
-                json.dump(users_data, f, indent=4)
-
-            return jsonify({'message': 'User registered successfully', 'username': username, 'email': email}), 200
+        if user_data:
+            if email in user_data['emails']:
+                user_index = user_data['emails'].index(email)
+                username = user_data['usernames'][user_index]
+                return jsonify({'message': 'Login successful', 'username': username, 'email': email}), 200
+            else:
+                new_id = max(user_data['ids']) + 1 if user_data['ids'] else 1
+                users_collection.update_one({}, {'$push': {'ids': new_id, 'usernames': username, 'emails': email, 'passwords': None}}, upsert=True)
+                return jsonify({'message': 'User registered successfully', 'username': username, 'email': email}), 200
 
     except ValueError as e:
         return jsonify({'message': 'Invalid Google token', 'details': str(e)}), 401
@@ -128,39 +136,35 @@ def edit_account():
     username = data.get('username')
     email = data.get('email')
 
-    if user_id is None or username is None or email is None:
+    if not user_id or not username or not email:
         return jsonify({'message': 'ID, username, and email are required'}), 400
 
     try:
-        with open('users.json', 'r') as f:
-            users_data = json.load(f)
+        user_data = users_collection.find_one()
 
-        if user_id not in users_data['ids']:
+        if not user_data:
             return jsonify({'message': 'User ID not found'}), 404
 
-        user_index = users_data['ids'].index(user_id)
+        user_index = user_data['ids'].index(user_id)
 
-        if email in users_data['emails'] and users_data['emails'][user_index] != email:
+        if email in user_data['emails'] and email != user_data['emails'][user_index]:
             return jsonify({'message': 'Email already in use by another user'}), 409
 
-        users_data['users'][user_index] = username
-        users_data['emails'][user_index] = email
-
-        with open('users.json', 'w') as f:
-            json.dump(users_data, f, indent=4)
+        users_collection.update_one(
+            {},
+            {'$set': {
+                f'usernames.{user_index}': username,
+                f'emails.{user_index}': email
+            }}
+        )
 
         return jsonify({'message': 'Account updated successfully'}), 200
 
-    except FileNotFoundError:
-        return jsonify({'message': 'User data file not found'}), 500
-    except json.JSONDecodeError:
-        return jsonify({'message': 'Error decoding user data file'}), 500
     except Exception as e:
         return jsonify({'message': f'Unexpected error: {str(e)}'}), 500
 
-
-@app.route('/get-account', methods=['POST'])
-def get_account():
+@app.route('/get-id-for-username', methods=['GET'])
+def get_id_for_username():
     data = request.get_json()
     username = data.get('username')
 
@@ -168,20 +172,42 @@ def get_account():
         return jsonify({'message': 'Username is required'}), 400
 
     try:
-        with open('users.json', 'r') as f:
-            users_data = json.load(f)
+        user_data = users_collection.find_one({'usernames': username})
 
-        if username in users_data['users']:
-            user_index = users_data['users'].index(username)
-            user_id = users_data['ids'][user_index]
-            email = users_data['emails'][user_index]
-            return jsonify({'id': user_id, 'username': username, 'email': email}), 200
-        else:
+        if not user_data:
             return jsonify({'message': 'User not found'}), 404
 
-    except Exception as e:
-        return jsonify({'message': str(e)}), 500
+        user_index = user_data['usernames'].index(username)
+        user_id = user_data['ids'][user_index]
+        return jsonify({'id': user_id, 'username': username, 'email': user_data['emails'][user_index]}), 200
 
+    except Exception as e:
+        return jsonify({'message': f'Unexpected error: {str(e)}'}), 500
+
+@app.route('/get-account', methods=['GET'])
+def get_account():
+    data = request.get_json()
+    print("Received data:", data) 
+
+    user_id = data.get('id')
+    if not user_id:
+        return jsonify({'message': 'User ID is required'}), 400
+
+    try:
+        user_data = users_collection.find_one({'ids': user_id})
+
+        if not user_data:
+            return jsonify({'message': 'User not found'}), 404
+
+        user_index = user_data['ids'].index(user_id)
+        return jsonify({
+            'id': user_data['ids'][user_index],
+            'email': user_data['emails'][user_index],
+            'username': user_data['usernames'][user_index]
+        }), 200
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'message': str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def home():

@@ -8,11 +8,10 @@ Requirements:
 Installation steps:
 1. Download ZIP.
 2. Create an empty folder and unarchive the contents of the ZIP.
-3. **Delete the _.venv_ folder if it exists**
-4. Open the newly created folder (at step 2) and open it in a terminal.
-5. **py -m venv .venv**
-6. **.venv\Scripts\activate**
-7. **pip install -r requirements.txt**
+3. Open the newly created folder in a terminal.
+4. **py -m venv .venv**
+5. **.venv\Scripts\activate**
+6. **pip install -r requirements.txt**
 
 **.env.vault**:
 1. **dotenv-vault open**
