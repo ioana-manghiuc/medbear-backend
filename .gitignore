@@ -402,3 +402,4 @@ FodyWeavers.xsd
 .flaskenv*
 !.env.vault
 !.env.project
+flask_session/

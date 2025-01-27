@@ -38,7 +38,12 @@ class UserBL:
 
         hashed_pwd = user_data['passwords'][index]
         if bcrypt.checkpw(password.encode(), hashed_pwd.encode()):
-            return {'message': 'Login successful', 'username': user_data["usernames"][index]}, 200
+            user_id = user_data['ids'][index]  
+            return {
+                'message': 'Login successful',
+                'username': user_data['usernames'][index],
+                'user_id': user_id
+            }, 200
         return {'message': 'Invalid credentials'}, 401
 
     def google_login(self, token):

@@ -1,9 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
+from flask_session import Session
 from flask_cors import CORS
 from Logic.user_bl import UserBL 
+from datetime import timedelta
+from config import Config
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = Config.SECRET_KEY
+
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+Session(app)
+
+CORS(app, supports_credentials=True)
 user_service = UserBL()
 
 @app.route('/sign-up', methods=['POST'])
@@ -21,7 +31,17 @@ def log_in():
     login = data.get('login')
     password = data.get('pwd')
     message, status_code = user_service.log_in(login, password)
+
+    if status_code == 200:
+        session['user_id'] = message.get('user_id')  
+        session['username'] = message.get('username')  
+        session.permanent = True  
     return jsonify(message), status_code
+
+@app.route('/log-out', methods=['POST'])
+def log_out():
+    session.clear()
+    return jsonify({'message': 'Logged out successfully'}), 200
 
 @app.route('/google-login', methods=['POST'])
 def google_login():
@@ -72,10 +92,22 @@ def get_account_details():
     else:
         return jsonify(message), status_code
 
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({'message': 'Welcome to the API!'}), 200
+@app.before_request
+def check_session_expiration():
+    if request.endpoint not in ['log_in', 'sign_up', 'google_login', 'get_google_client_id', 'static']:
+        if 'user_id' not in session:
+            if request.endpoint == 'home':  
+                return jsonify({'message': 'Session expired', 'expired': True}), 200
+            else:
+                return jsonify({'message': 'Session expired'}), 401
 
+@app.route('/home', methods=['GET'])
+def home():
+    return jsonify({'message': f"Welcome back, {session['username']}!"}), 200
+
+@app.route('/', methods=['GET'])
+def default():
+    return jsonify({'message': 'Welcome to the API!'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
