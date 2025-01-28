@@ -13,7 +13,7 @@ app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 Session(app)
 
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, origins=Config.FRONT_END_URL)
 user_service = UserBL()
 
 @app.route('/sign-up', methods=['POST'])
@@ -64,16 +64,19 @@ def get_google_client_id():
     message, status_code = user_service.fetch_google_client_id()
     return jsonify(message), status_code
 
-@app.route('/get-id-for-username', methods=['POST'])
+@app.route('/get-id-for-username', methods=['OPTIONS', 'POST'])
 def get_user_id_for_username():
-    data = request.get_json()
-    username = data.get('username')
-    user_id = user_service.get_id_by_username(username)
-
-    if user_id:
-        return jsonify({'id': user_id}), 200  
+    if request.method == 'OPTIONS':
+        return '', 200
     else:
-        return jsonify({'message': 'User not found'}), 404
+        data = request.get_json()
+        username = data.get('username')
+        user_id = user_service.get_id_by_username(username)
+
+        if user_id:
+            return jsonify({'id': user_id}), 200  
+        else:
+            return jsonify({'message': 'User not found'}), 404
 
 @app.route('/get-account', methods=['POST'])
 def get_account_details():
@@ -94,6 +97,9 @@ def get_account_details():
 
 @app.before_request
 def check_session_expiration():
+    if request.method == 'OPTIONS':
+        return '', 200
+
     if request.endpoint not in ['log_in', 'sign_up', 'google_login', 'get_google_client_id', 'static']:
         if 'user_id' not in session:
             if request.endpoint == 'home':  
