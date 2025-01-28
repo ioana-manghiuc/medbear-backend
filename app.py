@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, session
 from flask_session import Session
 from flask_cors import CORS
 from Logic.user_bl import UserBL 
+from Logic.chat_bl import ChatBL
 from datetime import timedelta
 from config import Config
 
@@ -15,6 +16,7 @@ Session(app)
 
 CORS(app, supports_credentials=True, origins=Config.FRONT_END_URL)
 user_service = UserBL()
+chat_bl = ChatBL()
 
 @app.route('/sign-up', methods=['POST'])
 def sign_up():
@@ -94,6 +96,89 @@ def get_account_details():
         }), 200
     else:
         return jsonify(message), status_code
+
+@app.route('/start-chat', methods=['POST'])
+def start_chat():
+    data = request.get_json()
+    user_ids = data.get("user_ids")
+    
+    if not user_ids:
+        return jsonify({"message": "User IDs are required"}), 400
+
+    response = chat_bl.start_new_chat(user_ids)
+    return jsonify(response), 200
+
+@app.route('/send-message', methods=['POST'])
+def send_message():
+    data = request.get_json()  
+    chat_id = data.get("chat_id") 
+    message = data.get("message")
+    sender_id = data.get("sender_id")
+    
+    if not chat_id or not message or not sender_id:
+        return jsonify({"message": "Chat ID, message, and sender ID are required"}), 400
+    
+    response = chat_bl.send_message(chat_id, message, sender_id)
+    return jsonify(response), 200
+
+@app.route('/receive-message', methods=['POST'])
+def receive_message():
+    data = request.get_json()
+    chat_id = data.get("chat_id")
+    message = data.get("message")
+    sender_id = data.get("sender_id")
+    
+    if not chat_id or not message or not sender_id:
+        return jsonify({"message": "Chat ID, message, and sender ID are required"}), 400
+    
+    response = chat_bl.receive_message(chat_id, message, sender_id)
+    return jsonify(response), 200
+
+@app.route('/create-chat', methods=['POST'])
+def create_chat():
+    data = request.get_json()
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"message": "User ID is required"}), 400
+    chat_id = chat_bl.start_new_chat(user_id)
+    return jsonify({"chat_id": chat_id}), 201
+
+@app.route('/get-chat-id/<int:user_id>', methods=['OPTIONS', 'GET'])
+def get_chat_by_user_id(user_id):
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    chat = chat_bl.get_chat_id(user_id)
+    print("chat id received app.y", chat)
+    if chat is not None:  
+        return jsonify({"chat_id": chat}), 200
+    else:
+        print("Creating new chat")
+        response = chat_bl.start_new_chat(user_id)
+        if response:  
+            return jsonify({"chat_id": response}), 201
+        else:
+            return jsonify({"message": "Failed to create chat"}), 500
+
+@app.route('/get-messages/<int:chat_id>', methods=['OPTIONS','GET'])
+def get_messages(chat_id):
+    messages = chat_bl.get_messages(chat_id)
+    if 'messages_sent' in messages:
+        return jsonify(messages), 200
+    return jsonify({"message": "Chat not found"}), 404
+
+@app.route('/get-chat-id/<int:user_id>', methods=['GET'])
+def get_chat_id_only(user_id):
+    chat = chat_bl.get_chat_by_user_id(user_id)
+
+    if chat:
+        return jsonify({"chat_id": chat['chat_id']}), 200
+    else:
+        response = chat_bl.create_new_chat([user_id])
+        if response:
+            return jsonify({"chat_id": response['chat_id']}), 201
+        else:
+            return jsonify({"message": "Failed to create chat"}), 500
 
 @app.before_request
 def check_session_expiration():
