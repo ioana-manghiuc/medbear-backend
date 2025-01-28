@@ -7,7 +7,7 @@ class ChatDAO:
         client = MongoClient(Config.MONGO_URI)
         self.db = client.get_database(Config.DB_NAME)
         self.chats_collection = self.db.chats
-
+        
     def find_chat_by_user_id(self, user_id):
         """Find the chat by user_id (return the first chat the user is part of)."""
         chat_data = self.chats_collection.find_one({'user_ids': user_id})
@@ -103,4 +103,3 @@ class ChatDAO:
             return chat["ids"][-1]  
         else:
             return self.add_new_chat(user_id) 
-
