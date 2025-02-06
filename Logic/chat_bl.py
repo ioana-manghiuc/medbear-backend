@@ -39,7 +39,7 @@ class ChatBL:
 
     def send_message(self, chat_id, message, sender_id):
         """Send a message in the chat."""
-        if self.dao.add_message(chat_id, "sent", message, sender_id):
+        if self.dao.add_message(chat_id, sender_id, message):
             return {"message": "Message sent successfully"}
         return {"message": "Failed to send message"}
 

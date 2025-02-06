@@ -1,105 +1,80 @@
 from pymongo import MongoClient
-from config import Config
-from Models.chat import Chat
+from config import SysConfig
+from Models.chat_model import Chat
 
 class ChatDAO:
     def __init__(self):
-        client = MongoClient(Config.MONGO_URI)
-        self.db = client.get_database(Config.DB_NAME)
+        client = MongoClient(SysConfig.MONGO_URI)
+        self.db = client.get_database(SysConfig.DB_NAME)
         self.chats_collection = self.db.chats
-        
+
     def find_chat_by_user_id(self, user_id):
-        """Find the chat by user_id (return the first chat the user is part of)."""
-        chat_data = self.chats_collection.find_one({'user_ids': user_id})
+        """Find the chat document that belongs to a specific user_id."""
+        chat_data = self.chats_collection.find_one({'user_id': user_id})
         if chat_data:
             return Chat.from_dict(chat_data)
         return None
 
-    def get_messages_sent(self, chat_id):
-        """Retrieve the messages_sent at the correct index for the given chat_id."""
-        chat = self.chats_collection.find_one({"ids": chat_id})
-        print(chat)
+    def get_messages_sent(self, user_id):
+        """Retrieve messages sent by the user from their chat document."""
+        chat = self.chats_collection.find_one({"user_id": user_id})
         if chat:
-            chat_index = chat["ids"].index(chat_id)
-            messages_sent = chat.get("messages_sent", [])
+            return chat.get("messages_sent", [])
+        return None
 
-            if chat_index < len(messages_sent):
-                return messages_sent[chat_index]
-            else:
-                return []  
-        return None 
-    
     def get_chat_by_user_id(self, user_id):
         """
-        Fetch the chat associated with the user_id from MongoDB.
-        Return the chat_id from the "ids" field corresponding to the user_id's index in "user_ids".
-        If no chat is found, return None or -1 if no chat is found.
+        Retrieve the chat_id associated with the given user_id.
+        Returns None if no chat document exists for this user.
         """
-        try:
-            chat = self.chats_collection.find_one({
-                "user_ids": user_id  
-            })
-        
-            if chat:
-                user_index = chat["user_ids"].index(user_id)
-            
-                if user_index < len(chat["ids"]):
-                    return chat["ids"][user_index]  
-                else:
-                    return -1 
-            else:
-                return -1  
-        
-        except Exception as e:
-            print(f"Error fetching chat for user_id {user_id}: {e}")
-            return -1  
+        chat = self.chats_collection.find_one({"user_id": user_id})
+        if chat:
+            return chat.get("chat_id")
+        return None  
 
-    def add_message(self, chat_id, message_type, message, sender_id):
-        chat = self.chats_collection.find_one({"ids": chat_id})
+    def add_message(self, chat_id, sender_id: int, message: str):
+        """
+        Adds a sent message to the correct chat document where chat_id and user_id match.
+
+        - `chat_id` (int): The chat document ID.
+        - `sender_id` (int): The user sending the message.
+        - `message` (str): The message content.
+
+        Returns `True` if successful, `False` otherwise.
+        """
+        result = self.chats_collection.update_one(
+            {"chat_id": chat_id, "user_id": sender_id},  
+            {"$push": {"messages_sent": message}}  
+        )
     
-        if chat:
-            chat_index = chat["ids"].index(chat_id)
-
-            if message_type == "sent":
-                update_query = {
-                    "$push": { f"messages_sent.{chat_index}": message }
-                }
-            elif message_type == "received":
-                update_query = {
-                    "$push": { f"messages_received.{chat_index}": message}
-                }
-
-            result = self.chats_collection.update_one(
-                {"ids": chat_id},  
-                update_query
-            )
-
-            return result.modified_count > 0  
-
-        return False  
-
+        return result.modified_count > 0  
+    
     def add_new_chat(self, user_id):
-        """Add a new chat entry for the user in the existing chat document."""
-        
-        chat = self.chats_collection.find_one({"user_ids": {"$ne": user_id}})
+        """
+        Creates a new chat document for a user if one does not already exist.
+        """
+        existing_chat = self.chats_collection.find_one({"user_id": user_id})
 
-        if chat:
-            chat["user_ids"].append(user_id)
-            user_index = len(chat["user_ids"]) - 1 
-            chat["ids"].append(max(chat["ids"]) + 1) 
-            chat["messages_sent"].append([])
-            chat["messages_received"].append([])
+        if existing_chat:
+            return existing_chat["chat_id"]
 
-            self.chats_collection.update_one(
-                {"_id": chat["_id"]}, 
-                {"$set": {
-                    "user_ids": chat["user_ids"],
-                    "ids": chat["ids"],
-                    "messages_sent": chat["messages_sent"],
-                    "messages_received": chat["messages_received"],
-                }}
-            )
+        new_chat_id = self.generate_chat_id()
 
-            return chat["ids"][-1]  
-        else:
-            return self.add_new_chat(user_id) 
+        new_chat = {
+            "chat_id": new_chat_id,
+            "user_id": user_id,
+            "messages_sent": [],
+            "messages_received": []
+        }
+
+        self.chats_collection.insert_one(new_chat)
+        return new_chat_id
+
+    def generate_chat_id(self):
+        """
+        Generate a unique chat_id based on the highest existing chat_id.
+        """
+        last_chat = self.chats_collection.find_one({}, sort=[("chat_id", -1)])
+        if last_chat:
+            return last_chat["chat_id"] + 1
+        return 1  

@@ -4,17 +4,17 @@ from flask_cors import CORS
 from Logic.user_bl import UserBL 
 from Logic.chat_bl import ChatBL
 from datetime import timedelta
-from config import Config
+from config import SysConfig
 
 app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
+app.secret_key = SysConfig.SECRET_KEY
 
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 Session(app)
 
-CORS(app, supports_credentials=True, origins=Config.FRONT_END_URL)
+CORS(app, supports_credentials=True, origins=SysConfig.FRONT_END_URL)
 user_service = UserBL()
 chat_bl = ChatBL()
 
@@ -66,19 +66,21 @@ def get_google_client_id():
     message, status_code = user_service.fetch_google_client_id()
     return jsonify(message), status_code
 
-@app.route('/get-id-for-username', methods=['OPTIONS', 'POST'])
+@app.route('/get-id-for-username', methods=['OPTIONS','POST'])
 def get_user_id_for_username():
-    if request.method == 'OPTIONS':
-        return '', 200
-    else:
-        data = request.get_json()
-        username = data.get('username')
-        user_id = user_service.get_id_by_username(username)
+    data = request.get_json()
+    username = data.get('username')
 
-        if user_id:
-            return jsonify({'id': user_id}), 200  
-        else:
-            return jsonify({'message': 'User not found'}), 404
+    if not username:
+        return jsonify({'message': 'Username is required'}), 400
+
+    user_id = user_service.get_id_by_username(username)
+    print("app.py user_id", user_id)
+    if user_id:
+        return jsonify({'id': user_id}), 200  
+    else:
+        return jsonify({'message': 'User not found'}), 404
+    
 
 @app.route('/get-account', methods=['POST'])
 def get_account_details():
