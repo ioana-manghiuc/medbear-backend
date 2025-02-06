@@ -1,7 +1,7 @@
 import bcrypt
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from config import Config
+from config import SysConfig
 from Database.user_dao import UserDAO
 
 class UserBL:
@@ -51,7 +51,7 @@ class UserBL:
             return {'message': 'Google token is required'}, 400
 
         try:
-            id_info = id_token.verify_oauth2_token(token, requests.Request(), Config.GOOGLE_CLIENT_ID)
+            id_info = id_token.verify_oauth2_token(token, requests.Request(), SysConfig.GOOGLE_CLIENT_ID)
             email = id_info.get('email')
             username = email.split('@')[0]
 

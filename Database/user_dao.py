@@ -1,11 +1,11 @@
 from pymongo import MongoClient
-from config import Config
-from Models.user import User
+from config import SysConfig
+from Models.user_model import User
 
 class UserDAO:
     def __init__(self):
-        client = MongoClient(Config.MONGO_URI)
-        self.db = client.get_database(Config.DB_NAME)
+        client = MongoClient(SysConfig.MONGO_URI)
+        self.db = client.get_database(SysConfig.DB_NAME)
         self.users_collection = self.db.users
 
     def find_user_by_username(self, username):
