@@ -85,7 +85,7 @@ class UserBL:
 
     def get_id_by_username(self, username):
         user_id = self.dao.find_id_by_username(username)
-        print("user_id", user_id)
+
         if user_id is not None:
             return user_id
         return None

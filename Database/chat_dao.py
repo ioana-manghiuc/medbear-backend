@@ -4,7 +4,7 @@ from Models.chat_model import Chat
 
 class ChatDAO:
     def __init__(self):
-        client = MongoClient(SysConfig.MONGO_URI)
+        client = MongoClient(SysConfig.MONGO_CONNECTION_STRING)
         self.db = client.get_database(SysConfig.DB_NAME)
         self.chats_collection = self.db.chats
 
@@ -16,10 +16,17 @@ class ChatDAO:
         return None
 
     def get_messages_sent(self, user_id):
-        """Retrieve messages sent by the user from their chat document."""
+        """Retrieve messages sent by the user from the corresponding chat document."""
         chat = self.chats_collection.find_one({"user_id": user_id})
         if chat:
             return chat.get("messages_sent", [])
+        return None
+    
+    def get_messages_received(self, user_id):
+        """Retrieve messages received by the user from the corresponding chat document."""
+        chat = self.chats_collection.find_one({"user_id": user_id})
+        if chat:
+            return chat.get("messages_received", [])
         return None
 
     def get_chat_by_user_id(self, user_id):
@@ -32,7 +39,16 @@ class ChatDAO:
             return chat.get("chat_id")
         return None  
 
-    def add_message(self, chat_id, sender_id: int, message: str):
+    def get_chats_by_user_id(self, user_id):
+        """Retrieve all chat IDs and titles associated with a user."""
+        chats = self.chats_collection.find({"user_id": user_id}, 
+                                           {"chat_id": 1, "title": 1, "_id": 0,
+                                            "messages_sent": 1, "messages_received": 1}, sort=[("chat_id", 1)])
+        chats_list = list(chats)
+        return chats_list
+
+
+    def add_user_message(self, chat_id, sender_id: int, message: str):
         """
         Adds a sent message to the correct chat document where chat_id and user_id match.
 
@@ -45,6 +61,23 @@ class ChatDAO:
         result = self.chats_collection.update_one(
             {"chat_id": chat_id, "user_id": sender_id},  
             {"$push": {"messages_sent": message}}  
+        )
+    
+        return result.modified_count > 0 
+    
+    def add_bot_message(self, chat_id, logged_user_id: int, message: str):
+        """
+        Adds a sent message to the correct chat document where chat_id and user_id match.
+
+        - `chat_id` (int): The chat document ID.
+        - `logged_user_id` (int): The user whose chat this will be stored in.
+        - `message` (str): The message content.
+
+        Returns `True` if successful, `False` otherwise.
+        """
+        result = self.chats_collection.update_one(
+            {"chat_id": chat_id, "user_id": logged_user_id},  
+            {"$push": {"messages_received": message}}  
         )
     
         return result.modified_count > 0  

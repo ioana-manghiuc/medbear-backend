@@ -403,3 +403,4 @@ FodyWeavers.xsd
 !.env.vault
 !.env.project
 flask_session/
+ggml-model-Q5_K_M.gguf

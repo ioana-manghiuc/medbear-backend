@@ -5,12 +5,17 @@ from Logic.user_bl import UserBL
 from Logic.chat_bl import ChatBL
 from datetime import timedelta
 from config import SysConfig
+import uuid
 
 app = Flask(__name__)
 app.secret_key = SysConfig.SECRET_KEY
 
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_PERMANENT'] = False 
+app.config['SESSION_TYPE'] = 'filesystem'  
+app.config['SESSION_COOKIE_NAME'] = 'my_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True  
+app.config['SESSION_COOKIE_SECURE'] = True  
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 Session(app)
 
@@ -27,7 +32,7 @@ def sign_up():
     message, status_code = user_service.sign_up(username, email, password)
     return jsonify(message), status_code
 
-@app.route('/log-in', methods=['POST'])
+@app.route('/login', methods=['POST'])
 def log_in():
     data = request.get_json()
     login = data.get('login')
@@ -36,7 +41,8 @@ def log_in():
 
     if status_code == 200:
         session['user_id'] = message.get('user_id')  
-        session['username'] = message.get('username')  
+        session['username'] = message.get('username') 
+        session['session_id'] = str(uuid.uuid4())
         session.permanent = True  
     return jsonify(message), status_code
 
@@ -75,7 +81,6 @@ def get_user_id_for_username():
         return jsonify({'message': 'Username is required'}), 400
 
     user_id = user_service.get_id_by_username(username)
-    print("app.py user_id", user_id)
     if user_id:
         return jsonify({'id': user_id}), 200  
     else:
@@ -120,21 +125,12 @@ def send_message():
     if not chat_id or not message or not sender_id:
         return jsonify({"message": "Chat ID, message, and sender ID are required"}), 400
     
-    response = chat_bl.send_message(chat_id, message, sender_id)
+    response = chat_bl.send_user_message(chat_id, message, sender_id)
     return jsonify(response), 200
 
-@app.route('/receive-message', methods=['POST'])
-def receive_message():
-    data = request.get_json()
-    chat_id = data.get("chat_id")
-    message = data.get("message")
-    sender_id = data.get("sender_id")
-    
-    if not chat_id or not message or not sender_id:
-        return jsonify({"message": "Chat ID, message, and sender ID are required"}), 400
-    
-    response = chat_bl.receive_message(chat_id, message, sender_id)
-    return jsonify(response), 200
+# @app.route('/response-message', methods=['POST'])
+# def response_message():
+
 
 @app.route('/create-chat', methods=['POST'])
 def create_chat():
@@ -151,7 +147,6 @@ def get_chat_by_user_id(user_id):
         return '', 200
     
     chat = chat_bl.get_chat_id(user_id)
-    print("chat id received app.y", chat)
     if chat is not None:  
         return jsonify({"chat_id": chat}), 200
     else:
@@ -162,12 +157,14 @@ def get_chat_by_user_id(user_id):
         else:
             return jsonify({"message": "Failed to create chat"}), 500
 
-@app.route('/get-messages/<int:chat_id>', methods=['OPTIONS','GET'])
+@app.route('/restore-chat-history/<int:chat_id>', methods=['GET'])
 def get_messages(chat_id):
     messages = chat_bl.get_messages(chat_id)
-    if 'messages_sent' in messages:
-        return jsonify(messages), 200
-    return jsonify({"message": "Chat not found"}), 404
+
+    if not messages or ('messages_sent' not in messages or 'messages_received' not in messages):
+        return jsonify({"message": "Chat not found or no messages available"}), 404
+
+    return jsonify(messages), 200
 
 @app.route('/get-chat-id/<int:user_id>', methods=['GET'])
 def get_chat_id_only(user_id):
@@ -182,8 +179,19 @@ def get_chat_id_only(user_id):
         else:
             return jsonify({"message": "Failed to create chat"}), 500
 
+@app.route('/get-user-chats/<int:user_id>', methods=['GET'])
+def get_user_chats(user_id):
+    chats = chat_bl.get_user_chats(user_id)
+    if chats:
+        return jsonify({"chats": chats}), 200
+    return jsonify({"message": "No chats found"}), 404
+
+
 @app.before_request
 def check_session_expiration():
+    session.permanent = False
+    session.modified = True
+    
     if request.method == 'OPTIONS':
         return '', 200
 
@@ -193,6 +201,14 @@ def check_session_expiration():
                 return jsonify({'message': 'Session expired', 'expired': True}), 200
             else:
                 return jsonify({'message': 'Session expired'}), 401
+            
+@app.before_request
+def enforce_session_timeout():
+    """Invalidate the session if it exceeds the absolute timeout."""
+    if 'session_id' in session:
+        session.modified = True 
+    else:
+        session.clear()
 
 @app.route('/home', methods=['GET'])
 def home():

@@ -4,6 +4,8 @@ class Chat:
         self.user_id = user_id
         self.messages_sent = messages_sent
         self.messages_received = messages_received
+        self.date = datetime.now()
+        self.title = f"Chat {self.chat_id}"
 
     def __repr__(self):
         return f"Chat(chat_id={self.chat_id}, user_ids={self.user_id}, messages_sent={self.messages_sent}, messages_received={self.messages_received})"

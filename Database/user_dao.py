@@ -4,7 +4,7 @@ from Models.user_model import User
 
 class UserDAO:
     def __init__(self):
-        client = MongoClient(SysConfig.MONGO_URI)
+        client = MongoClient(SysConfig.MONGO_CONNECTION_STRING)
         self.db = client.get_database(SysConfig.DB_NAME)
         self.users_collection = self.db.users
 
