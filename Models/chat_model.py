@@ -1,4 +1,4 @@
-class Chat:
+class ChatModel:
     def __init__(self, chat_id, user_id, messages_sent, messages_received):
         self.chat_id = chat_id
         self.user_id = user_id

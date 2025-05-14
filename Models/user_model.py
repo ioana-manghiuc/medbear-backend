@@ -1,4 +1,4 @@
-class User:
+class UserModel:
     def __init__(self, user_id, username, email, password=None):
         self.user_id = user_id
         self.username = username

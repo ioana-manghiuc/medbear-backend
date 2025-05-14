@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from config import SysConfig
-from Models.chat_model import Chat
+from Models.chat_model import ChatModel
 
 class ChatDAO:
     def __init__(self):
@@ -12,19 +12,19 @@ class ChatDAO:
         """Find the chat document that belongs to a specific user_id."""
         chat_data = self.chats_collection.find_one({'user_id': user_id})
         if chat_data:
-            return Chat.from_dict(chat_data)
+            return ChatModel.from_dict(chat_data)
         return None
 
-    def get_messages_sent(self, user_id):
+    def get_messages_sent(self, chat_id):
         """Retrieve messages sent by the user from the corresponding chat document."""
-        chat = self.chats_collection.find_one({"user_id": user_id})
+        chat = self.chats_collection.find_one({"chat_id": chat_id})
         if chat:
             return chat.get("messages_sent", [])
         return None
     
-    def get_messages_received(self, user_id):
+    def get_messages_received(self, chat_id):
         """Retrieve messages received by the user from the corresponding chat document."""
-        chat = self.chats_collection.find_one({"user_id": user_id})
+        chat = self.chats_collection.find_one({"chat_id": chat_id})
         if chat:
             return chat.get("messages_received", [])
         return None

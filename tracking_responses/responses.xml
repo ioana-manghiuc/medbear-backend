@@ -1,0 +1,15 @@
+<responses>
+    <question>
+        <content>what values are checked during a lipid panel?</content>
+        <biomistral>A lipid panel typically includes measurements of total cholesterol (TC), high-density lipoprotein cholesterol (HDL-C), low-density lipoprotein cholesterol (LDL-C), and triglycerides (TG). Other lipid parameters that may be measured include lipoprotein(a) (LP(a)), very-low-density lipoprotein cholesterol (VLDL-C), apolipoprotein A1 (ApoA1), and apolipoprotein B (ApoB). These lipid parameters are often used to assess cardiovascular disease risk, as elevated levels of TC, LDL-C, and TG, as well as low levels of HDL-C, are associated with an increased risk of cardiovascular disease.</biomistral>
+        <meditron>The lipid panel measures the following: Cholesterol (total) HDL cholesterol LDL cholesterol Triglycerides A1c Total cholesterol is the total amount of cholesterol in the blood. HDL cholesterol is the good cholesterol. It protects the blood vessels from the harmful effects of LDL cholesterol. LDL cholesterol is the “bad” cholesterol. The higher the level, the higher your risk of heart disease. Triglycerides are a form of fat that is found in blood. Elevated triglycerides are associated with diabetes. A1c measures your average blood sugar level over the past 3 months. This test tells you how well you are managing your diabetes. A1c is a simple blood test. It’s done as part of the diabetes screening test. To take the diabetes screening test, you need to fast for at least 12 hours. Then you will take a blood test. This test will check your blood sugar level. The test result will tell you if you need to follow-up with a doctor. A1c is a measure of blood sugar. It shows how well you are managing your diabetes. A1c is a simple blood test. It’s done as part of the diabetes screening test. To take the diabetes screening test, you need to fast for at least 12 hours. Then you will take a blood test. This test will check your blood sugar level. The test result will tell you if you need to follow-up with a doctor. A1c is a measure of blood sugar. It shows how well you are managing your diabetes. A1c is a simple blood test. It’s done as part of the diabetes screening test. To take the diabetes screening test, you need to fast for at least 12 hours. Then you will take a blood test. This test will check your blood sugar level. The test result will tell you if you need to follow-up with a doctor.
+        </meditron>
+    </question>
+
+    <quesion>
+        <!-- using prompt builder + limiting tokens = 250 and temperature = 0.3 -->
+        <content>what values are checked during a lipid panel?</content>
+        <biomistral>A lipid panel typically measures the levels of total cholesterol, low-density lipoprotein (LDL) cholesterol, high-density lipoprotein (HDL) cholesterol, and triglycerides in the blood.</biomistral>
+        <meditron>Total cholesterol, HDL cholesterol, LDL cholesterol, triglycerides, and glucose.</meditron>
+    </question>
+</responses>

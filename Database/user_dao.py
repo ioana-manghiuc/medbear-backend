@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from config import SysConfig
-from Models.user_model import User
+from Models.user_model import UserModel
 
 class UserDAO:
     def __init__(self):
@@ -11,7 +11,7 @@ class UserDAO:
     def find_user_by_username(self, username):
         user_data = self.users_collection.find_one({'username': username})
         if user_data:
-            return User.from_dict({
+            return UserModel.from_dict({
                 "id": user_data.get("id"),
                 "username": user_data.get("username"),
                 "email": user_data.get("email"),
@@ -22,7 +22,7 @@ class UserDAO:
     def find_user_by_email(self, email):
         user_data = self.users_collection.find_one({'email': email})
         if user_data:
-            return User.from_dict({
+            return UserModel.from_dict({
                 "id": user_data.get("id"),
                 "username": user_data.get("username"),
                 "email": user_data.get("email"),
@@ -33,7 +33,7 @@ class UserDAO:
     def find_user_by_id(self, user_id):
         user_data = self.users_collection.find_one({'id': user_id})
         if user_data:
-            return User.from_dict({
+            return UserModel.from_dict({
                 "id": user_data.get("id"),
                 "username": user_data.get("username"),
                 "email": user_data.get("email"),
@@ -63,7 +63,7 @@ class UserDAO:
             {'$set': {'username': username, 'email': email}}
         )
         if result.matched_count > 0:
-            return User(user_id, username, email)
+            return UserModel(user_id, username, email)
         return None
 
     def add_google_user(self, username, email):
@@ -74,4 +74,4 @@ class UserDAO:
             'email': email,
             'password': None,  
         })
-        return User(new_id, username, email)
+        return UserModel(new_id, username, email)

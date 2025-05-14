@@ -6,6 +6,9 @@ from Logic.chat_bl import ChatBL
 from datetime import timedelta
 from config import SysConfig
 import uuid
+from llama_cpp import Llama
+import chromadb
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 app.secret_key = SysConfig.SECRET_KEY
@@ -22,6 +25,33 @@ Session(app)
 CORS(app, supports_credentials=True, origins=SysConfig.FRONT_END_URL)
 user_service = UserBL()
 chat_bl = ChatBL()
+executor = ThreadPoolExecutor()
+
+llm_biomistral = Llama.from_pretrained(
+    repo_id="mradermacher/BioMistral-7B-SLERP-GGUF",
+    filename="BioMistral-7B-SLERP.Q5_K_M.gguf",
+)
+
+llm_meditron = Llama.from_pretrained(
+    repo_id="TheBloke/meditron-7B-GGUF",
+    filename="meditron-7b.Q5_K_M.gguf",
+)
+chroma_client = chromadb.PersistentClient(path="./medical_db")
+collection = chroma_client.get_or_create_collection("blood_analysis")
+
+def build_prompt(question, context):
+    return (
+        "You are a medical assistant. Answer clearly and briefly.\n"
+        "Limit your response to 4 concise sentences. Avoid repetition.\n\n"
+        f"Context:\n{context}\n\n"
+        f"Question: {question}\nAnswer:"
+    )
+
+
+def get_context(prompt):
+    results = collection.query(query_texts=[prompt], n_results=1)
+    docs = results["documents"][0] if results["documents"] else []
+    return "\n".join(docs) if docs else "No relevant medical context found."
 
 @app.route('/sign-up', methods=['POST'])
 def sign_up():
@@ -32,7 +62,7 @@ def sign_up():
     message, status_code = user_service.sign_up(username, email, password)
     return jsonify(message), status_code
 
-@app.route('/login', methods=['POST'])
+@app.route('/log-in', methods=['POST'])
 def log_in():
     data = request.get_json()
     login = data.get('login')
@@ -128,10 +158,61 @@ def send_message():
     response = chat_bl.send_user_message(chat_id, message, sender_id)
     return jsonify(response), 200
 
-# @app.route('/response-message', methods=['POST'])
-# def response_message():
+@app.route('/get-bot-response', methods=['POST'])
+def get_bot_response():
+    data = request.get_json()
+    chat_id = data.get("chat_id")
+    user_prompt = data.get("message")
 
+    if not chat_id or not user_prompt:
+        return jsonify({"message": "chat_id and message are required"}), 400
 
+    context = get_context(user_prompt)
+    full_prompt = build_prompt(user_prompt, context)
+    result = llm_biomistral(full_prompt,max_tokens=250,temperature=0.3,stop=["\n\n", "Question:", "Context:", "Limit your response"])
+    bot_reply = result['choices'][0]['text'].strip()
+
+    user_id = session.get("user_id")
+    if user_id:
+        chat_bl.dao.add_bot_message(chat_id, user_id, bot_reply)
+
+    return jsonify({"response": bot_reply}), 200
+
+def run(model, prompt):
+    try:
+        result = model(
+            prompt,
+            max_tokens=150,
+            temperature=0.3,
+            stop=["\n\n", "Question:", "Context:", "Limit your response"]
+        )
+        return result.get('choices', [{}])[0].get('text', '').strip() or "No response."
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@app.route('/models-replies', methods=['POST'])
+def compare_models():
+    data = request.get_json()
+    prompt = data.get("message")
+    chat_id = data.get("chat_id")
+
+    if not prompt or not chat_id:
+        return jsonify({"message": "Missing message or chat_id"}), 400
+
+    context = get_context(prompt)
+    full_prompt = build_prompt(prompt, context)
+
+    future_bio = executor.submit(run, llm_biomistral, full_prompt)
+    future_medi = executor.submit(run, llm_meditron, full_prompt)
+
+    response_bio = future_bio.result()
+    response_medi = future_medi.result()
+
+    return jsonify({
+        "biomistral": response_bio,
+        "meditron": response_medi
+    }), 200
+    
 @app.route('/create-chat', methods=['POST'])
 def create_chat():
     data = request.get_json()

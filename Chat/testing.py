@@ -1,55 +1,31 @@
-import requests
+from llama_cpp import Llama
 import chromadb
-import sys
-import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from config import SysConfig
+llm = Llama.from_pretrained(
+    repo_id="ioana-manghiuc/bio-mistral-for-web",
+    filename="ggml-model-Q5_K_M.gguf"
+)
 
 chroma_client = chromadb.PersistentClient(path="./medical_db")
 collection = chroma_client.get_or_create_collection("blood_analysis")
 
-if collection.count() == 0:
-    collection.add(
-        ids=["1"],
-        documents=["A normal hemoglobin range for men is 13.8 to 17.2 g/dL, and for women is 12.1 to 15.1 g/dL."],
-    )
-    collection.add(
-        ids=["2"],
-        documents=["TSH (Thyroid-Stimulating Hormone) levels above 4.0 mIU/L may indicate hypothyroidism."],
-    )
+def retrieve_context(query: str, n_results: int = 1) -> str:
+    results = collection.query(query_texts=[query], n_results=n_results)
+    documents = results["documents"][0] if results["documents"] else []
+    return "\n".join(documents) if documents else "No relevant context found."
 
-OLLAMA_URL = SysConfig.OLLAMA_URL
-MODEL_NAME = "biomistral"
 
-def ask_ollama(prompt, context=""):
-    """Send a prompt to Ollama with optional context from ChromaDB."""
-    full_prompt = f"Context: {context}\n\nQuestion: {prompt}"
-    
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": full_prompt,
-        "stream": False  
-    }
-    
-    response = requests.post(OLLAMA_URL, json=payload)
-    
-    if response.status_code == 200:
-        return response.json()["response"]
-    else:
-        return f"Error: {response.status_code} - {response.text}"
+def rag_response(prompt: str) -> str:
+    context = retrieve_context(prompt)
+    full_prompt = f"Context:\n{context}\n\nQuestion:\n{prompt}\n\nAnswer:"
+    output = llm(full_prompt, max_tokens=512)
+    return output['choices'][0]['text'].strip()
+
 
 if __name__ == "__main__":
     while True:
-        user_input = input("\nAsk something (or type 'exit' to quit): ")
+        user_input = input("\nAsk something (or type 'exit'): ")
         if user_input.lower() == "exit":
             break
-
-        results = collection.query(query_texts=[user_input], n_results=1)
-
-        context = results["documents"][0][0] if results["documents"] else "No relevant medical data found."
-
-        response = ask_ollama(user_input, context)
-        
-        print(response)
+        answer = rag_response(user_input)
+        print("\nResponse:\n", answer)
